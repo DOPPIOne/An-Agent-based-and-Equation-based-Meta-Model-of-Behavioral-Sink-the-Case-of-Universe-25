@@ -1,0 +1,114 @@
+from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor
+
+import numpy as np
+import pandas as pd
+
+from Models import IndividualModel
+
+
+FIT_FILE = "best_fit_ebm.csv"
+CASE_NAME = "Universe_25"
+OUTPUT_DIR = Path("abm_sensitivity_output")
+
+PARAM_NAMES = ["c", "m", "n", "d", "k", "R"]
+
+VARIATIONS = np.arange(-0.10, 0.1001, 0.02)
+NEGATIVE_BRANCH = VARIATIONS[VARIATIONS <= 0.0]
+POSITIVE_BRANCH = VARIATIONS[VARIATIONS > 0.0]
+
+N_SIM = 1000
+
+T = 2000
+P_0 = 10
+s_0 = 0
+z = 4
+
+
+def load_best_fit(filepath):
+    df = pd.read_csv(filepath)
+    return {
+        "T": T,
+        "c": float(df.loc[0, "c"]),
+        "m": float(df.loc[0, "m"]),
+        "n": float(df.loc[0, "n"]),
+        "d": float(df.loc[0, "d"]),
+        "k": float(df.loc[0, "k"]),
+        "R": float(df.loc[0, "R"]),
+        "P_0": P_0,
+        "s_0": s_0,
+        "z": z,
+    }
+
+
+def print_progress(current, total, length=20):
+    pct = current / total
+    filled = int(length * pct)
+    bar = "|" * filled + "_" * (length - filled)
+    print(f"\r[{bar}] {int(pct*100):3d}%", end="", flush=True)
+
+
+def worker(case_name, base_params, param_name, variations, n_sim, output_dir):
+    total = len(variations) * n_sim
+    counter = 0
+
+    for variation in variations:
+        params = base_params.copy()
+        params[param_name] = base_params[param_name] * (1.0 + variation)
+
+        out = []
+
+        for sim_id in range(n_sim):
+            model = IndividualModel(
+                params["T"], params["c"], params["m"], params["n"],
+                params["d"], params["k"], params["R"],
+                params["P_0"], params["s_0"], params["z"]
+            )
+            model.setup()
+            model.run()
+
+            P = np.asarray(model.P_ts, dtype=float)
+            S = np.asarray(model.S_ts, dtype=float)
+
+            out.append(pd.DataFrame({
+                "case": case_name,
+                "parameter": param_name,
+                "variation": variation,
+                "variation_pct": variation * 100,
+                "sim_id": sim_id,
+                "t": np.arange(len(P), dtype=int),
+                "S_ts_ABM": S,
+                "P_ts_ABM": P,
+            }))
+
+            counter += 1
+            print_progress(counter, total)
+
+        df_out = pd.concat(out, ignore_index=True)
+
+        sign = "p" if variation >= 0 else "m"
+        pct = int(round(abs(variation) * 100))
+        filename = f"{case_name}_{param_name}_{sign}{pct:02d}.csv"
+
+        df_out.to_csv(Path(output_dir) / filename, index=False)
+
+    print()  # newline finale
+
+
+def main():
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    base_params = load_best_fit(FIT_FILE)
+
+    tasks = []
+    for param_name in PARAM_NAMES:
+        tasks.append((CASE_NAME, base_params, param_name, NEGATIVE_BRANCH, N_SIM, str(OUTPUT_DIR)))
+        tasks.append((CASE_NAME, base_params, param_name, POSITIVE_BRANCH, N_SIM, str(OUTPUT_DIR)))
+
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(worker, *task) for task in tasks]
+        for f in futures:
+            f.result()
+
+
+if __name__ == "__main__":
+    main()
