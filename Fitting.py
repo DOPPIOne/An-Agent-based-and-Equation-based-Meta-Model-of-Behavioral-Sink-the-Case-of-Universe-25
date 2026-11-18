@@ -5,7 +5,7 @@ from geneticalgorithm import geneticalgorithm as ga
 import matplotlib.pyplot as plt
 
 T = 2000
-P_0 = 10
+P_0 = 8
 s_0 = 0
 
 t_ED = np.array([0, 80, 315, 560, 736, 800, 900, 1000, 1280, 1350, 1480], dtype=int)
@@ -25,12 +25,12 @@ def objective_function(params):
     return nrmse_on_points(P_ts_, t_ED, p_ED)
 
 varbound = np.array([
-    [5.10e-05, 5.11e-04], #c
-    [5.20e-03, 5.30e-03], #m
-    [1.92e-02, 1.93e-02], #n
-    [2.83e-08, 2.84e-08], #d
-    [3.52e+01, 3.53e+01], #k
-    [3.80e+03, 3.80e+03], #R
+    [2.55e-04, 7.66e-04], #c  ±50% intorno a 5.11e-4
+    [2.63e-03, 7.90e-03], #m  ±50% intorno a 5.27e-3
+    [9.62e-03, 2.89e-02], #n  ±50% intorno a 1.92e-2
+    [0.00e+00, 1.00e-01], #d  da 0 a 0.1 (recupero fino al 10% al giorno)
+    [1.76e+01, 5.29e+01], #k  ±50% intorno a 35.3
+    [3.80e+03, 3.80e+03], #R  fisso
 ], dtype=float)
 
 algorithm_param = {

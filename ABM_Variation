@@ -9,7 +9,7 @@ from Models import IndividualModel
 
 FIT_FILE = "best_fit_ebm.csv"
 CASE_NAME = "Universe_25"
-OUTPUT_DIR = Path("abm_sensitivity_output")
+OUTPUT_DIR = Path(".")
 
 PARAM_NAMES = ["c", "m", "n", "d", "k", "R"]
 
@@ -20,7 +20,7 @@ POSITIVE_BRANCH = VARIATIONS[VARIATIONS > 0.0]
 N_SIM = 1000
 
 T = 2000
-P_0 = 10
+P_0 = 8
 s_0 = 0
 z = 4
 
@@ -68,17 +68,14 @@ def worker(case_name, base_params, param_name, variations, n_sim, output_dir):
             model.run()
 
             P = np.asarray(model.P_ts, dtype=float)
-            S = np.asarray(model.S_ts, dtype=float)
 
             out.append(pd.DataFrame({
                 "case": case_name,
                 "parameter": param_name,
                 "variation": variation,
-                "variation_pct": variation * 100,
-                "sim_id": sim_id,
+                "id": sim_id,
                 "t": np.arange(len(P), dtype=int),
-                "S_ts_ABM": S,
-                "P_ts_ABM": P,
+                "population": P,
             }))
 
             counter += 1
